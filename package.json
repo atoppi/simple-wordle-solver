@@ -1,0 +1,12 @@
+{
+  "name": "simple-wordle-solver",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "exports": "./index.js",
+  "author": {
+    "name" : "Alessandro Toppi",
+    "email" : "toppi.ale@gmail.com"
+  },
+  "license": "ISC"
+}
