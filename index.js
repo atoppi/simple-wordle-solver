@@ -2,6 +2,8 @@
 const WORD_SIZE = 5;
 /* Maximum number of attempts */
 const MAX_STEPS = 6;
+/* Default strategy to use */
+const DEFAULT_STRATEGY = 1;
 
 /* Prompt utils */
 import { getPrompt, closePrompt } from './prompt.js';
@@ -41,75 +43,65 @@ function solveUnattended(answer, strategy) {
   let remainingWords = [...dictionary.values];
   let steps = 0;
   let exitValue = 0;
+
   for (;;) {
-    if (remainingWords.length === 1) {
-      if (remainingWords[0] === answer) {
-        console.log(`success: the solution is "${remainingWords[0]}" (${steps})\n`);
-        exitValue = steps;
-      }
-      else {
-        console.log('failure: the solution is wrong\n');
-        exitValue = -1;
-      }
-      break;
-    }
-    if (remainingWords.length === 0) {
+    if (!remainingWords.includes(answer)) {
       console.log('failure: the solution is not present in the dictionary\n');
-      exitValue = -2;
-      break;
-    }
-    if (steps === MAX_STEPS) {
-      console.log(`failure: could not find solution in ${MAX_STEPS} steps :-(\n`);
-      exitValue = (steps+1);
+      exitValue = -1;
       break;
     }
 
     const inputWord = guess(remainingWords, strategy);
     if (!checkWord(inputWord, remainingWords)) {
       console.log('failure: guessed word is not in the dictionary\n');
-      exitValue = -3;
+      exitValue = -2;
       break;
     }
+
     const resultMask = evaluateMask(inputWord, answer);
     if (!checkMask(resultMask)) {
       console.log('failure: evaluated mask is wrong\n');
-      exitValue = -4;
+      exitValue = -3;
       break;
     }
 
     remainingWords = update(inputWord, resultMask, remainingWords);
 
     steps++;
+
+    if (inputWord === answer) {
+      console.log(`success: the solution is "${inputWord}" (${steps})\n`);
+      exitValue = steps;
+      break;
+    }
+
+    if (steps === MAX_STEPS) {
+      console.log(`failure: could not find solution in ${MAX_STEPS} steps :-(\n`);
+      exitValue = (steps+1);
+      break;
+    }
   }
 
   return exitValue;
 }
 
-async function solveWithPrompt() {
+async function solveWithPrompt(strategy) {
   /* Initialize to the whole dictionary */
   let remainingWords = [...dictionary.values];
 
   let steps = 0;
   for (;;) {
-    console.log(`\nsteps done = ${steps}`);
-    console.log(`remaining words = ${remainingWords.length}`);
-
     if (remainingWords.length === 0) {
-      console.log('the solution is not present in the dictionary');
+      console.log('\nfailure: the solution is not present in the dictionary');
       break;
     }
-    if (remainingWords.length === 1) {
-      console.log(`the solution is "${remainingWords[0]}"`);
-      break;
-    }
-    if (steps === MAX_STEPS) {
-      console.log(`could not find solution in ${MAX_STEPS} steps :-(`);
-      break;
-    }
+
+    console.log(`\nstep #${steps+1}`);
+    console.log(`remaining words = ${remainingWords.length}`);
 
     let inputWord = await getPrompt('insert word (press ENTER to make a guess): ');
     if (!inputWord || inputWord.length === 0) {
-      inputWord = guess(remainingWords, 1);
+      inputWord = guess(remainingWords, strategy);
       console.log(`picked "${inputWord}"`);
     }
     if (!checkWord(inputWord, remainingWords)) continue;
@@ -125,6 +117,16 @@ async function solveWithPrompt() {
     remainingWords = update(inputWord, resultMask, remainingWords);
 
     steps++;
+
+    if (/[^2$]+/.test(resultMask) === false) {
+      console.log(`\nsuccess: the solution is "${inputWord}" (found in ${steps} steps)\n`);
+      break;
+    }
+
+    if (steps === MAX_STEPS) {
+      console.log(`\nfailure: could not find solution in ${MAX_STEPS} steps :-(\n`);
+      break;
+    }
   }
 
   closePrompt();
@@ -348,10 +350,11 @@ function addFilter(param, fn, arr) {
 }
 
 if (process.argv.length <= 2) {
-  await solveWithPrompt();
+  const strategy = DEFAULT_STRATEGY;
+  await solveWithPrompt(strategy);
 } else {
   const iterations = parseInt(process.argv[2]);
-  const strategy = process.argv.length > 3 ? parseInt(process.argv[3]) : undefined;
+  const strategy = process.argv.length > 3 ? parseInt(process.argv[3]) : DEFAULT_STRATEGY;
 
   const steps = [];
   for (let i = 0; i < iterations; i++) {
