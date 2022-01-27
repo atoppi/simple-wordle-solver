@@ -36,6 +36,32 @@ function calculateCharFreqs(solutions) {
   return weights;
 }
 
+function calculateCharFreqsByPosition(solutions) {
+  let hitsByPos = {};
+  let weightByPos = {};
+  let maxHitsByPos = {};
+  for (const word of solutions) {
+    for (let i=0; i<word.length; i++) {
+      const w = word.charAt(i);
+      if (!hitsByPos[i]) hitsByPos[i] = {};
+      if (!hitsByPos[i][w]) hitsByPos[i][w] = 1;
+      else hitsByPos[i][w]++;
+      if (!maxHitsByPos[i] || hitsByPos[i][w] > maxHitsByPos[i]) {
+        maxHitsByPos[i] = hitsByPos[i][w];
+      }
+    }
+  }
+
+  for (const [pos, hits] of Object.entries(hitsByPos)) {
+    for (const [c, h] of Object.entries(hits)) {
+      if (!weightByPos[pos]) weightByPos[pos] = {};
+      weightByPos[pos][c] = Math.round(h / maxHitsByPos[pos] * 100) / 100;
+    }
+  }
+
+  return weightByPos;
+}
+
 function solveUnattended(answer, strategy) {
   console.log(`unattended mode: searching for answer "${answer}" using strategy ${strategy}`);
 
@@ -160,13 +186,13 @@ function guess(solutions, strategy) {
   let pick;
 
   /* Strategy 0 : fastest, random guess */
-  /* ~6% of failure rate */
+  /* ~90% of success rate */
   if (strategy === 0) {
     pick = solutions[Math.floor(Math.random() * solutions.length)];
   }
 
   /* Strategy 1 : fast, words with highest number of unique characters */
-  /* ~4% of failure rate */
+  /* ~92% of success rate */
   if (strategy === 1) {
     let max = 0;
     let candidates = [];
@@ -193,7 +219,7 @@ function guess(solutions, strategy) {
   }
 
   /* Strategy 2 : slow, words with highest frequency chars metric */
-  /* ~13% of failure rate */
+  /* ~80% of success rate */
   if (strategy === 2) {
     const weights = calculateCharFreqs(solutions);
     let max = 0;
@@ -214,8 +240,8 @@ function guess(solutions, strategy) {
     pick = candidates[Math.floor(Math.random() * candidates.length)];
   }
 
-  /* Strategy 3 : slow, mix 1 and 2 */
-  /* ~4% of failure rate, lowest average steps */
+  /* Strategy 3 : slow, words with highest frequency distinct chars metric */
+  /* ~93-94% of success rate */
   if (strategy === 3) {
     const weights = calculateCharFreqs(solutions);
     let max = 0;
@@ -227,6 +253,33 @@ function guess(solutions, strategy) {
         if (distincts.has(w)) continue;
         distincts.add(w);
         value = value + 1 * weights[w];
+      }
+      if (value < max) continue;
+      else if (value > max) {
+        candidates = [word];
+        max = value;
+      }
+      else if (value === max) {
+        candidates.push(word);
+      }
+    }
+    pick = candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  /* Strategy 4 : slow, words with highest positioning frequency distinct chars metric */
+  /* ~94-95% of success rate */
+  if (strategy === 4) {
+    const weightsByPos = calculateCharFreqsByPosition(solutions);
+    let max = 0;
+    let candidates = [];
+    for (const word of solutions) {
+      const distincts = new Set();
+      let value = 0;
+      for (let i=0; i<word.length; i++) {
+        const w = word.charAt(i);
+        if (distincts.has(w)) continue;
+        distincts.add(w);
+        value = value + 1 * weightsByPos[i][w];
       }
       if (value < max) continue;
       else if (value > max) {
@@ -350,8 +403,7 @@ function addFilter(param, fn, arr) {
 }
 
 if (process.argv.length <= 2) {
-  const strategy = DEFAULT_STRATEGY;
-  await solveWithPrompt(strategy);
+  await solveWithPrompt(4);
 } else {
   const iterations = parseInt(process.argv[2]);
   const strategy = process.argv.length > 3 ? parseInt(process.argv[3]) : DEFAULT_STRATEGY;

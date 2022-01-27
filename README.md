@@ -80,16 +80,22 @@ unsolved %		     = 10.09%
 
 - `0` : random guess among the remaining words
 
-This works surprsingly well, with a success rate of ~90% in ~4.6 average steps. Of course it is the quickest strategy.
+This works surprsingly well, with a success rate of ~89-90% in ~4.58 average steps. Of course it is the quickest strategy.
 
 - `1` : pick words with the higest number of distinct chars
 
-This is the default strategy. It has a success rate of ~92% in ~4.5 average steps. It executes in reasonable time.
+It has a success rate of ~92% in ~4.50 average steps. It executes in reasonable time.
+This is the default strategy in unattended mode.
 
 - `2`: pick words with the most frequent chars in the remaining words
 
-This strategy proved to be very poor. It has a success rate of ~80% in ~4.9 average steps. It also is very slow, since it needs to re-calculate chars frequency at each step.
+This strategy proved to be very poor. It has a success rate of ~80% in ~4.93 average steps. It also is very slow, since it needs to re-calculate chars frequency at each step.
 
 - `3`: mix 1 and 2, pick words with the most frequent *distinct* chars
 
-This is the best strategy in terms of success rate (~94%) and average steps needed (~4.27). However it is as slow as `3`.
+It has a success rate of ~93% with ~4.25 average steps needed. However it is as slow as `2`.
+
+- `4`: like `3`, but pick words with the most frequent distinct chars in a *specific position*
+
+It has a success rate of ~94-95% with ~4.25 average steps needed. However it is as slow as `2`.
+This is the strategy used in interactive mode.
