@@ -85,6 +85,7 @@ This works surprsingly well, with a success rate of ~89-90% in ~4.58 average ste
 - `1` : pick words with the higest number of distinct chars
 
 It has a success rate of ~92% in ~4.50 average steps. It executes in reasonable time.
+
 This is the default strategy in unattended mode.
 
 - `2`: pick words with the most frequent chars in the remaining words
@@ -98,4 +99,13 @@ It has a success rate of ~93% with ~4.25 average steps needed. However it is as 
 - `4`: like `3`, but pick words with the most frequent distinct chars in a *specific position*
 
 It has a success rate of ~94-95% with ~4.25 average steps needed. However it is as slow as `2`.
+
+- `5`: refine `4`, by picking the most common english word among the candidates with highest positioning frequency distinct chars metric
+
+It has a success rate of ~96%
+
+- `6`: refine `5`, by picking the most common english word when remaining solutions size is very small
+
+It has a success rate of ~98%
+
 This is the strategy used in interactive mode.

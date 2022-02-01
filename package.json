@@ -5,8 +5,11 @@
   "type": "module",
   "exports": "./index.js",
   "author": {
-    "name" : "Alessandro Toppi",
-    "email" : "toppi.ale@gmail.com"
+    "name": "Alessandro Toppi",
+    "email": "toppi.ale@gmail.com"
   },
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "popular-english-words": "^1.0.2"
+  }
 }
