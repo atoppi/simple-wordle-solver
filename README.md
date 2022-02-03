@@ -19,10 +19,17 @@ You can use `simple-wordle-solver` to solve a Wordle puzzle by interacting with 
 
 Start the program with
 ```
-node index.js
+node index.js --strategy=0
 ```
 the output will be
 ```
+Importing dictionary and rank set...
+--- dictionary size = 12972 (solutions = 2315)
+--- ranks array size = 165507
+--- interactive mode
+--- using strategy 6
+--- no answer supplied
+
 step #1
 remaining words = 12972
 insert word (press ENTER to make a guess):
@@ -55,14 +62,17 @@ The program will halt if a solution is found in under 6 steps or an error occurs
 
 ## Unattended mode
 
-The program can also be launched in unattended mode.
+The program can also be launched in unattended mode by setting the number of iterations to run.
 ```
-node index.js 1000 1
+node index.js --iterations=1000 --strategy=1
 ```
 
 The first paramer is the number of iterations while the second one is the guess strategy to adopt.
 
-For any iteration the program will pick a random solution and then challenge itself by using the guessing strategy defined in the command line.
+For any iteration the program will pick a solution  and then challenge itself by using the guessing strategy defined in the command line.
+
+Bear in mind that solutions are not choosen randomly, but the array of solutions will be iterated one by one, so in order to evaluate all possibile solutions you need
+to set `iterations` to the number of potential solutions (according to the current Wordle dictionary this number is `2315`).
 
 This is very useful for e.g. comparing different strategies in terms of speed, success rate and average steps needed to solve.
 
@@ -76,36 +86,48 @@ solved %		     = 89.91%
 unsolved %		     = 10.09%
 ```
 
+## Setting a target solution
+
+You can set a target solution by passing the argument `--answer`.
+
+```
+node index.js --answer=paper
+```
+
+By setting an answer the program will auto-evaluate the result mask in interactive mode and will use only that answer in unattended mode.
+
+```
+node index.js --answer=paper --iterations=1
+```
+
 ## Strategies
 
 - `0` : random guess among the remaining words
 
-This works surprsingly well, with a success rate of ~89-90% in ~4.58 average steps. Of course it is the quickest strategy.
+This works surprsingly well, with a success rate of 88.6% in 4.6 average steps. Of course it is the quickest strategy.
 
 - `1` : pick words with the higest number of distinct chars
 
-It has a success rate of ~92% in ~4.50 average steps. It executes in reasonable time.
+It has a success rate of 92.5% in 4.4 average steps. It executes in reasonable time.
 
-This is the default strategy in unattended mode.
+- `2`: pick words with the most frequent chars among the remaining words
 
-- `2`: pick words with the most frequent chars in the remaining words
+This strategy proved to be very poor. It has a success rate of 79.3% in 5.0 average steps. It also is very slow, since it needs to re-calculate chars frequency at each step.
 
-This strategy proved to be very poor. It has a success rate of ~80% in ~4.93 average steps. It also is very slow, since it needs to re-calculate chars frequency at each step.
+- `3`: mix 1 and 2, picking words with the most frequent *distinct* chars
 
-- `3`: mix 1 and 2, pick words with the most frequent *distinct* chars
+It has a success rate of 93% with 4.3 average steps needed. However it is as slow as `2`.
 
-It has a success rate of ~93% with ~4.25 average steps needed. However it is as slow as `2`.
+- `4`: similar to `3`, but pick words with the most frequent distinct chars in a *specific position*
 
-- `4`: like `3`, but pick words with the most frequent distinct chars in a *specific position*
+It has a success rate of 94.6% with 4.2 average steps needed.
 
-It has a success rate of ~94-95% with ~4.25 average steps needed. However it is as slow as `2`.
+- `5`: refine `4`, by picking the most common english word among the candidates selected by strategy `4`
 
-- `5`: refine `4`, by picking the most common english word among the candidates with highest positioning frequency distinct chars metric
+It has a success rate of 97.1% in 4.1 average steps.
 
-It has a success rate of ~96%
+- `6`: refine `5`, when remaining solutions set is very small does not evaluate the strategy `4` metric and just picks the most common english word
 
-- `6`: refine `5`, by picking the most common english word when remaining solutions size is very small
+It has a success rate of 98.3% in 4.1 average steps.
 
-It has a success rate of ~98%
-
-This is the strategy used in interactive mode.
+This is the default strategy.

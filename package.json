@@ -10,6 +10,6 @@
   },
   "license": "ISC",
   "dependencies": {
-    "popular-english-words": "^1.0.2"
+    "commander": "^9.0.0"
   }
 }

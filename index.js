@@ -3,14 +3,33 @@ const WORD_SIZE = 5;
 /* Maximum number of attempts */
 const MAX_STEPS = 6;
 /* Default strategy to use */
-const DEFAULT_STRATEGY = 1;
+const DEFAULT_STRATEGY = 6;
+
+import { program } from 'commander';
+program
+  .option('-s, --strategy <value>', 'Strategy to use', DEFAULT_STRATEGY)
+  .option('-i, --iterations <value>', 'Number of iterations to run (do not set to use interactive mode)')
+  .option('-a, --answer <value>', 'Set a target solution')
+  .parse(process.argv);
+
+const options = program.opts();
+
+if (!options.iterations)
+  console.log('--- interactive mode');
+else
+  console.log(`--- unattended mode (iterations = ${options.iterations})`);
+console.log(`--- using strategy ${options.strategy}`);
+if (!options.answer)
+  console.log('--- no answer supplied');
+else
+  console.log(`--- searching for answer "${options.answer}"`);
 
 /* Prompt utils */
 import { getPrompt, closePrompt } from './prompt.js';
 
 /* Get wordle dictionary */
-import { dictionary, getRank } from './words.js';
-console.log(`--- dictionary size = ${dictionary.values.length} ---`);
+import { dictionary, getRank } from './words/words.js';
+dictionary.values.sort();
 
 const cache = new Map();
 
@@ -41,7 +60,7 @@ function calculateCharFreqsByPosition(solutions) {
   let weightByPos = {};
   let maxHitsByPos = {};
   for (const word of solutions) {
-    for (let i=0; i<word.length; i++) {
+    for (let i = 0; i < word.length; i++) {
       const w = word.charAt(i);
       if (!hitsByPos[i]) hitsByPos[i] = {};
       if (!hitsByPos[i][w]) hitsByPos[i][w] = 1;
@@ -63,21 +82,21 @@ function calculateCharFreqsByPosition(solutions) {
 }
 
 function solveUnattended(answer, strategy) {
-  console.log(`unattended mode: searching for answer "${answer}" using strategy ${strategy}`);
+  console.log(`\nunattended mode: searching for answer "${answer}" using strategy ${strategy}`);
 
   /* Initialize solutions to the whole dictionary */
   let remainingWords = [...dictionary.values];
   let steps = 0;
   let exitValue = 0;
 
-  for (;;) {
+  for (; ;) {
     if (!remainingWords.includes(answer)) {
       console.log('failure: the solution is not present in the dictionary\n');
       exitValue = -1;
       break;
     }
 
-    const inputWord = guess(remainingWords, strategy);
+    const inputWord = guess(remainingWords, strategy, steps);
     if (!checkWord(inputWord, remainingWords)) {
       console.log('failure: guessed word is not in the dictionary\n');
       exitValue = -2;
@@ -96,14 +115,14 @@ function solveUnattended(answer, strategy) {
     steps++;
 
     if (inputWord === answer) {
-      console.log(`success: the solution is "${inputWord}" (${steps})\n`);
+      console.log(`success: the solution is "${inputWord}" (${steps})`);
       exitValue = steps;
       break;
     }
 
     if (steps === MAX_STEPS) {
-      console.log(`failure: could not find solution in ${MAX_STEPS} steps ${JSON.stringify(remainingWords)}\n`);
-      exitValue = (steps+1);
+      console.log(`failure: could not find ${answer ? `solution "${answer}"` : 'solution'} in ${MAX_STEPS} steps ${JSON.stringify(remainingWords)}\n`);
+      exitValue = (steps + 1);
       break;
     }
   }
@@ -111,18 +130,18 @@ function solveUnattended(answer, strategy) {
   return exitValue;
 }
 
-async function solveWithPrompt(strategy) {
+async function solveWithPrompt(answer, strategy) {
   /* Initialize to the whole dictionary */
   let remainingWords = [...dictionary.values];
 
   let steps = 0;
-  for (;;) {
+  for (; ;) {
     if (remainingWords.length === 0) {
       console.log('\nfailure: the solution is not present in the dictionary');
       break;
     }
 
-    console.log(`\nstep #${steps+1}`);
+    console.log(`\nstep #${steps + 1}`);
     console.log(`remaining words = ${remainingWords.length}`);
 
     let inputWord = await getPrompt('insert word (press ENTER to make a guess): ');
@@ -132,11 +151,17 @@ async function solveWithPrompt(strategy) {
     }
     if (!checkWord(inputWord, remainingWords)) continue;
 
-    let resultMask = await getPrompt('insert wordle color mask (0=grey, 1=yellow, 2=green, press ENTER to skip word): ');
-    if (!resultMask || resultMask.length === 0) {
-      console.log('skipping word');
-      remainingWords = remainingWords.filter(w => w !== inputWord);
-      continue;
+
+    let resultMask;
+    if (!answer) {
+      resultMask = await getPrompt('insert wordle color mask (0=grey, 1=yellow, 2=green, press ENTER to skip word): ');
+      if (!resultMask || resultMask.length === 0) {
+        console.log('skipping word');
+        remainingWords = remainingWords.filter(w => w !== inputWord);
+        continue;
+      }
+    } else {
+      resultMask = evaluateMask(inputWord, answer);
     }
     if (!checkMask(resultMask)) continue;
 
@@ -150,7 +175,7 @@ async function solveWithPrompt(strategy) {
     }
 
     if (steps === MAX_STEPS) {
-      console.log(`\nfailure: could not find solution in ${MAX_STEPS} steps :-(\n`);
+      console.log(`\nfailure: could not find ${answer ? `solution "${answer}"` : 'solution'} in ${MAX_STEPS} steps ${JSON.stringify(remainingWords)}\n`);
       break;
     }
   }
@@ -182,7 +207,7 @@ function checkMask(mask) {
   return true;
 }
 
-function guess(solutions, strategy) {
+function guess(solutions, strategy, stepsDone) {
   let pick;
 
   /* Strategy 0 : fastest, random guess */
@@ -215,7 +240,7 @@ function guess(solutions, strategy) {
         candidates.push(word);
       }
     }
-    pick = candidates[Math.floor(Math.random() * candidates.length)];
+    pick = candidates[0];
   }
 
   /* Strategy 2 : slow, words with highest frequency chars metric */
@@ -237,10 +262,10 @@ function guess(solutions, strategy) {
         candidates.push(word);
       }
     }
-    pick = candidates[Math.floor(Math.random() * candidates.length)];
+    pick = candidates[0];
   }
 
-  /* Strategy 3 : slow, words with highest frequency distinct chars metric */
+  /* Strategy 3 : slow, words with highest frequency _distinct_ chars metric */
   /* ~93% of success rate */
   if (strategy === 3) {
     const weights = calculateCharFreqs(solutions);
@@ -263,10 +288,10 @@ function guess(solutions, strategy) {
         candidates.push(word);
       }
     }
-    pick = candidates[Math.floor(Math.random() * candidates.length)];
+    pick = candidates[0];
   }
 
-  /* Strategy 4 : slow, words with highest positioning frequency distinct chars metric */
+  /* Strategy 4 : slow, words with highest _positioning_ frequency distinct chars metric */
   /* ~95% of success rate */
   if (strategy === 4) {
     const weightsByPos = calculateCharFreqsByPosition(solutions);
@@ -275,7 +300,7 @@ function guess(solutions, strategy) {
     for (const word of solutions) {
       const distincts = new Set();
       let value = 0;
-      for (let i=0; i<word.length; i++) {
+      for (let i = 0; i < word.length; i++) {
         const w = word.charAt(i);
         if (distincts.has(w)) continue;
         distincts.add(w);
@@ -290,11 +315,11 @@ function guess(solutions, strategy) {
         candidates.push(word);
       }
     }
-    pick = candidates[Math.floor(Math.random() * candidates.length)];
+    pick = candidates[0];
   }
 
   /* Strategy 5 : slow, refine strategy 4 by picking the most common word among the candidates with highest positioning frequency distinct chars metric */
-  /* ~96% of success rate */
+  /* ~97% of success rate */
   if (strategy === 5) {
     const weightsByPos = calculateCharFreqsByPosition(solutions);
     let max = 0;
@@ -302,7 +327,7 @@ function guess(solutions, strategy) {
     for (const word of solutions) {
       const distincts = new Set();
       let value = 0;
-      for (let i=0; i<word.length; i++) {
+      for (let i = 0; i < word.length; i++) {
         const w = word.charAt(i);
         if (distincts.has(w)) continue;
         distincts.add(w);
@@ -314,59 +339,33 @@ function guess(solutions, strategy) {
         max = value;
       }
       else if (value === max) {
-        const topRank = getRank(candidates[0]);
+        const topRank = getRank(candidates[0]) >= 0 ? getRank(candidates[0]) : Number.MAX_SAFE_INTEGER;
         const newRank = getRank(word);
-        if (topRank < 0 || (topRank >= 0 && newRank >= 0 && newRank < topRank))
+        if (newRank >= 0 && newRank < topRank)
           candidates.unshift(word);
         else
           candidates.push(word);
       }
     }
-
     pick = candidates[0];
   }
 
-  /* Strategy 6 : slow, refine strategy 5 by picking most common english word when remaining solutions size is very small */
+  /* Strategy 6 : slow, refine strategy 5 by choosing only by most common english word at the very last step */
   /* ~98% of success rate */
   if (strategy === 6) {
-    if (solutions.length <= 4) {
-      let topRank = -1;
+    //if ((stepsDone === (MAX_STEPS - 1) && solutions.length > 1) || (stepsDone > MAX_STEPS / 2 && solutions.length > MAX_STEPS / 2)) {
+    if (stepsDone === (MAX_STEPS - 1) && solutions.length > 1) {
+      let topRank = Number.MAX_SAFE_INTEGER;
       for (const word of solutions) {
         const newRank = getRank(word);
-        if (topRank < 0 || (topRank >= 0 && newRank >= 0 && newRank < topRank)) {
+        if (newRank >= 0 && newRank < topRank) {
           topRank = newRank;
           pick = word;
         }
       }
     }
     else {
-      const weightsByPos = calculateCharFreqsByPosition(solutions);
-      let max = 0;
-      let candidates = [];
-      for (const word of solutions) {
-        const distincts = new Set();
-        let value = 0;
-        for (let i=0; i<word.length; i++) {
-          const w = word.charAt(i);
-          if (distincts.has(w)) continue;
-          distincts.add(w);
-          value = value + 1 * weightsByPos[i][w];
-        }
-        if (value < max) continue;
-        else if (value > max) {
-          candidates = [word];
-          max = value;
-        }
-        else if (value === max) {
-          const topRank = getRank(candidates[0]);
-          const newRank = getRank(word);
-          if (newRank >= 0 && newRank < topRank)
-            candidates.unshift(word);
-          else
-            candidates.push(word);
-        }
-      }
-      pick = candidates[0];
+      pick = guess(solutions, 5, stepsDone);
     }
   }
 
@@ -479,28 +478,25 @@ function addFilter(param, fn, arr) {
   arr.push(new Function(param, fn));
 }
 
-if (process.argv.length <= 2) {
-  await solveWithPrompt(6);
+if (!options.iterations) {
+  await solveWithPrompt(options.answer, parseInt(options.strategy));
 } else {
-  const iterations = parseInt(process.argv[2]);
-  const strategy = process.argv.length > 3 ? parseInt(process.argv[3]) : DEFAULT_STRATEGY;
-
-  const steps = [];
-  for (let i = 0; i < iterations; i++) {
-    const randomSolution = dictionary.solutions[Math.floor(Math.random() * dictionary.solutions.length)];
-    const iters = solveUnattended(randomSolution, strategy);
-    steps.push(iters);
+  const stepsForSolvingTot = [];
+  for (let i = 0; i < options.iterations; i++) {
+    const solution = options.answer || dictionary.solutions[i % dictionary.solutions.length];
+    const stepsToSolve = solveUnattended(solution, parseInt(options.strategy));
+    stepsForSolvingTot.push(stepsToSolve);
   }
-  const unsolved = steps.filter(s => s >= MAX_STEPS + 1);
-  const solved = steps.filter(s => s > 0 && s <= MAX_STEPS);
-  const errored = steps.filter(s => s <= 0);
-  const savg = (solved.reduce((x, y) => x + y) / solved.length);
+  const unsolved = stepsForSolvingTot.filter(s => s >= MAX_STEPS + 1);
+  const solved = stepsForSolvingTot.filter(s => s > 0 && s <= MAX_STEPS);
+  const errored = stepsForSolvingTot.filter(s => s <= 0);
+  const savg = solved.length > 0 ? (solved.reduce((x, y) => x + y) / solved.length) : 0;
 
-  console.log(`total iterations\t = ${steps.length}`);
+  console.log(`\ntotal iterations\t = ${stepsForSolvingTot.length}`);
   console.log(`solved avg steps\t = ${round2(savg)}`);
   console.log(`errors \t\t\t = ${errored.length}`);
-  console.log(`solved %\t\t = ${round2(100 * solved.length / steps.length)}%`);
-  console.log(`unsolved %\t\t = ${round2(100 * unsolved.length / steps.length)}%`);
+  console.log(`solved %\t\t = ${round2(100 * solved.length / stepsForSolvingTot.length)}%`);
+  console.log(`unsolved %\t\t = ${round2(100 * unsolved.length / stepsForSolvingTot.length)}%`);
 }
 
 function round2(num) {
