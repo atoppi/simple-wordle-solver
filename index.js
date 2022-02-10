@@ -8,16 +8,16 @@ const DEFAULT_STRATEGY = 6;
 import { program } from 'commander';
 program
   .option('-s, --strategy <value>', 'Strategy to use', DEFAULT_STRATEGY)
-  .option('-i, --iterations <value>', 'Number of iterations to run (do not set to use interactive mode)')
+  .option('-u, --unattended', 'Run the solver for all the possibile solutions')
   .option('-a, --answer <value>', 'Set a target solution')
   .parse(process.argv);
 
 const options = program.opts();
 
-if (!options.iterations)
+if (!options.unattended)
   console.log('--- interactive mode');
 else
-  console.log(`--- unattended mode (iterations = ${options.iterations})`);
+  console.log(`--- unattended mode (iterations = ${options.answer ? 1 : dictionary.solutions.length})`);
 console.log(`--- using strategy ${options.strategy}`);
 if (!options.answer)
   console.log('--- no answer supplied');
@@ -122,7 +122,11 @@ function solveUnattended(answer, strategy) {
     }
 
     if (steps === MAX_STEPS) {
-      console.log(`failure: could not find ${answer ? `solution "${answer}"` : 'solution'} in ${MAX_STEPS} steps ${JSON.stringify(remainingWords)}\n`);
+      const wordsFilt = remainingWords.map(w => {
+        if (dictionary.solutions.includes(w)) return w + '*';
+        return w;
+      });
+      console.log(`failure: could not find ${answer ? `solution "${answer}"` : 'solution'} in ${MAX_STEPS} steps ${JSON.stringify(wordsFilt)}`);
       exitValue = (steps + 1);
       break;
     }
@@ -176,7 +180,11 @@ async function solveWithPrompt(answer, strategy) {
     }
 
     if (steps === MAX_STEPS) {
-      console.log(`\nfailure: could not find ${answer ? `solution "${answer}"` : 'solution'} in ${MAX_STEPS} steps ${JSON.stringify(remainingWords)}\n`);
+      const wordsFilt = remainingWords.map(w => {
+        if (dictionary.solutions.includes(w)) return w + '*';
+        return w;
+      });
+      console.log(`\nfailure: could not find ${answer ? `solution "${answer}"` : 'solution'} in ${MAX_STEPS} steps ${JSON.stringify(wordsFilt)}\n`);
       break;
     }
   }
@@ -358,11 +366,10 @@ function guess(solutions, strategy, stepsDone, lastMask) {
     pick = rankedCandidates[0];
   }
 
-  /* Strategy 6 : slow, refine strategy 5 by choosing only by most common english word at the very last step */
+  /* Strategy 6 : slow, refine strategy 5 by choosing only by most common english word at the last steps */
   /* ~98% of success rate */
   if (strategy === 6) {
-    //if ((stepsDone === (MAX_STEPS - 1) && solutions.length > 1) || (stepsDone > MAX_STEPS / 2 && solutions.length > MAX_STEPS / 2)) {
-    if (stepsDone === (MAX_STEPS - 1) && solutions.length > 1) {
+    if ((MAX_STEPS - stepsDone <= 2) && solutions.length > MAX_STEPS - stepsDone) {
       const rankedCandidates = orderByRank(solutions);
       pick = rankedCandidates[0];
     }
@@ -458,7 +465,7 @@ function orderByRank(candidates) {
   rankedCandidates.sort(compareFn);
 
   for (const c of rankedCandidates)
-    console.log(c,getRank(c));
+    console.log(`${c}${dictionary.solutions.includes(c) ? '*' : ''}`, getRank(c));
 
   return rankedCandidates;
 }
@@ -498,12 +505,13 @@ function addFilter(param, fn, arr) {
   arr.push(new Function(param, fn));
 }
 
-if (!options.iterations) {
+if (!options.unattended) {
   await solveWithPrompt(options.answer, parseInt(options.strategy));
 } else {
   const stepsForSolvingTot = [];
-  for (let i = 0; i < options.iterations; i++) {
-    const solution = options.answer || dictionary.solutions[i % dictionary.solutions.length];
+  const iterations = options.answer ? 1 : dictionary.solutions.length;
+  for (let i = 0; i < iterations; i++) {
+    const solution = options.answer || dictionary.solutions[i];
     const stepsToSolve = solveUnattended(solution, parseInt(options.strategy));
     stepsForSolvingTot.push(stepsToSolve);
   }

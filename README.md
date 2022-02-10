@@ -11,7 +11,7 @@ I am aware of other efforts that use greedy algorithms and similars, but in the 
 
 The dictionary has been copied from the Wordle javascript client.
 It is splitted in two blocks, one with the words among which Wordle selects a solution every day, and another one with all the possibile inputs.
-Of course the latter is bigger than the former. In total, summing up the two blocks, we have ~12000 words.
+Of course the latter is bigger than the former. In total, summing up the two blocks, we have ~13000 words.
 
 ## Interactive mode
 
@@ -62,24 +62,19 @@ The program will halt if a solution is found in under 6 steps or an error occurs
 
 ## Unattended mode
 
-The program can also be launched in unattended mode by setting the number of iterations to run.
+The program can also be launched in unattended mode by setting the flag `unattended`.
 ```
-node index.js --iterations=1000 --strategy=1
+node index.js --unattended --strategy=1
 ```
 
-The first paramer is the number of iterations while the second one is the guess strategy to adopt.
-
-For any iteration the program will pick a solution  and then challenge itself by using the guessing strategy defined in the command line.
-
-Bear in mind that solutions are not choosen randomly, but the array of solutions will be iterated one by one, so in order to evaluate all possibile solutions you need
-to set `iterations` to the number of potential solutions (according to the current Wordle dictionary this number is `2315`).
+For any iteration the program will pick a solution from the dictionay and then challenge itself by using the guessing strategy defined in the command line.
 
 This is very useful for e.g. comparing different strategies in terms of speed, success rate and average steps needed to solve.
 
 When the program ends it will present an useful summary.
 
 ```
-total iterations	 = 10000
+total iterations	 = 2315
 solved avg steps	 = 4.59
 errors 			     = 0
 solved %		     = 89.91%
@@ -97,7 +92,7 @@ node index.js --answer=paper
 By setting an answer the program will auto-evaluate the result mask in interactive mode and will use only that answer in unattended mode.
 
 ```
-node index.js --answer=paper --iterations=1
+node index.js --answer=paper --unattended
 ```
 
 ## Strategies

@@ -13,8 +13,8 @@ import words5 from './words5.js';
 
 const cache = new Map();
 
-console.log(`--- dictionary size = ${dictionary.values.length} (solutions = ${dictionary.solutions.length})`);
-console.log(`--- ranks array size = ${words5.length}`);
+console.log(`--- dictionary [size = ${dictionary.values.length}] [solutions = ${dictionary.solutions.length}]`);
+console.log(`--- ranks set  [size = ${words5.length}]`);
 
 async function _getMostPopularLength(size, len) {
   const fileStream = createReadStream(__dirname + '/enwiki-20210820-words-frequency.txt');
