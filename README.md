@@ -1,8 +1,8 @@
 **This is just a weekend project, so take it easy :-)**
 
-## simple-worlde-solver
+## simple-wordle-solver
 
-Wordle solver for `Node.js`.
+Wordle hard-mode solver for `Node.js`.
 
 
 I am aware of other efforts that use greedy algorithms and similars, but in the end I wanted to adopt simpler strategies that could mimic how a human would guess words or could be executed by just evaluating properties of the words (e.g. not considering all the combinations of the words).
