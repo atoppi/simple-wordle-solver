@@ -88,6 +88,7 @@ function solveUnattended(answer, strategy) {
   let remainingWords = [...dictionary.values];
   let steps = 0;
   let exitValue = 0;
+  let resultMask;
 
   for (; ;) {
     if (!remainingWords.includes(answer)) {
@@ -96,14 +97,14 @@ function solveUnattended(answer, strategy) {
       break;
     }
 
-    const inputWord = guess(remainingWords, strategy, steps);
+    const inputWord = guess(remainingWords, strategy, steps, resultMask);
     if (!checkWord(inputWord, remainingWords)) {
       console.log('failure: guessed word is not in the dictionary\n');
       exitValue = -2;
       break;
     }
 
-    const resultMask = evaluateMask(inputWord, answer);
+    resultMask = evaluateMask(inputWord, answer);
     if (!checkMask(resultMask)) {
       console.log('failure: evaluated mask is wrong\n');
       exitValue = -3;
@@ -135,6 +136,8 @@ async function solveWithPrompt(answer, strategy) {
   let remainingWords = [...dictionary.values];
 
   let steps = 0;
+  let resultMask;
+
   for (; ;) {
     if (remainingWords.length === 0) {
       console.log('\nfailure: the solution is not present in the dictionary');
@@ -146,13 +149,11 @@ async function solveWithPrompt(answer, strategy) {
 
     let inputWord = await getPrompt('insert word (press ENTER to make a guess): ');
     if (!inputWord || inputWord.length === 0) {
-      inputWord = guess(remainingWords, strategy);
+      inputWord = guess(remainingWords, strategy, steps, resultMask);
       console.log(`picked "${inputWord}"`);
     }
     if (!checkWord(inputWord, remainingWords)) continue;
 
-
-    let resultMask;
     if (!answer) {
       resultMask = await getPrompt('insert wordle color mask (0=grey, 1=yellow, 2=green, press ENTER to skip word): ');
       if (!resultMask || resultMask.length === 0) {
@@ -207,7 +208,7 @@ function checkMask(mask) {
   return true;
 }
 
-function guess(solutions, strategy, stepsDone) {
+function guess(solutions, strategy, stepsDone, lastMask) {
   let pick;
 
   /* Strategy 0 : fastest, random guess */
@@ -225,8 +226,11 @@ function guess(solutions, strategy, stepsDone) {
       if (!cache.has(word)) {
         const distincts = new Set();
         let val = 0;
-        for (const w of word)
+        for (let i = 0; i < word.length; i++) {
+          if (lastMask && lastMask.charAt(i) === '2') continue;
+          const w = word.charAt(i);
           distincts.add(w);
+        }
         val = distincts.size;
         cache.set(word, val);
       }
@@ -251,8 +255,11 @@ function guess(solutions, strategy, stepsDone) {
     let candidates = [];
     for (const word of solutions) {
       let value = 0;
-      for (const w of word)
+      for (let i = 0; i < word.length; i++) {
+        if (lastMask && lastMask.charAt(i) === '2') continue;
+        const w = word.charAt(i);
         value = value + 1 * weights[w];
+      }
       if (value < max) continue;
       else if (value > max) {
         candidates = [word];
@@ -274,7 +281,9 @@ function guess(solutions, strategy, stepsDone) {
     for (const word of solutions) {
       const distincts = new Set();
       let value = 0;
-      for (const w of word) {
+      for (let i = 0; i < word.length; i++) {
+        if (lastMask && lastMask.charAt(i) === '2') continue;
+        const w = word.charAt(i);
         if (distincts.has(w)) continue;
         distincts.add(w);
         value = value + 1 * weights[w];
@@ -301,6 +310,7 @@ function guess(solutions, strategy, stepsDone) {
       const distincts = new Set();
       let value = 0;
       for (let i = 0; i < word.length; i++) {
+        if (lastMask && lastMask.charAt(i) === '2') continue;
         const w = word.charAt(i);
         if (distincts.has(w)) continue;
         distincts.add(w);
@@ -328,6 +338,7 @@ function guess(solutions, strategy, stepsDone) {
       const distincts = new Set();
       let value = 0;
       for (let i = 0; i < word.length; i++) {
+        if (lastMask && lastMask.charAt(i) === '2') continue;
         const w = word.charAt(i);
         if (distincts.has(w)) continue;
         distincts.add(w);
@@ -339,15 +350,12 @@ function guess(solutions, strategy, stepsDone) {
         max = value;
       }
       else if (value === max) {
-        const topRank = getRank(candidates[0]) >= 0 ? getRank(candidates[0]) : Number.MAX_SAFE_INTEGER;
-        const newRank = getRank(word);
-        if (newRank >= 0 && newRank < topRank)
-          candidates.unshift(word);
-        else
-          candidates.push(word);
+        candidates.push(word);
       }
     }
-    pick = candidates[0];
+
+    const rankedCandidates = orderByRank(candidates);
+    pick = rankedCandidates[0];
   }
 
   /* Strategy 6 : slow, refine strategy 5 by choosing only by most common english word at the very last step */
@@ -355,17 +363,11 @@ function guess(solutions, strategy, stepsDone) {
   if (strategy === 6) {
     //if ((stepsDone === (MAX_STEPS - 1) && solutions.length > 1) || (stepsDone > MAX_STEPS / 2 && solutions.length > MAX_STEPS / 2)) {
     if (stepsDone === (MAX_STEPS - 1) && solutions.length > 1) {
-      let topRank = Number.MAX_SAFE_INTEGER;
-      for (const word of solutions) {
-        const newRank = getRank(word);
-        if (newRank >= 0 && newRank < topRank) {
-          topRank = newRank;
-          pick = word;
-        }
-      }
+      const rankedCandidates = orderByRank(solutions);
+      pick = rankedCandidates[0];
     }
     else {
-      pick = guess(solutions, 5, stepsDone);
+      pick = guess(solutions, 5, stepsDone, lastMask);
     }
   }
 
@@ -443,6 +445,24 @@ function update(word, mask, solutions) {
   return solutions.filter(word => filters.every(f => f(word)));
 }
 
+function orderByRank(candidates) {
+  const compareFn = (first, second) => {
+    const rankFirst = getRank(first) >= 0 ? getRank(first) : Number.MAX_SAFE_INTEGER;
+    const rankSecond = getRank(second) >= 0 ? getRank(second) : Number.MAX_SAFE_INTEGER;
+    if (rankFirst === rankSecond) return 0;
+    if (rankFirst > rankSecond) return 1;
+    if (rankFirst < rankSecond) return -1;
+  };
+
+  const rankedCandidates = [...candidates];
+  rankedCandidates.sort(compareFn);
+
+  for (const c of rankedCandidates)
+    console.log(c,getRank(c));
+
+  return rankedCandidates;
+}
+
 function evaluateMask(word, answer) {
   const availableChars = {};
   const maskArr = [];
@@ -493,12 +513,12 @@ if (!options.iterations) {
   const savg = solved.length > 0 ? (solved.reduce((x, y) => x + y) / solved.length) : 0;
 
   console.log(`\ntotal iterations\t = ${stepsForSolvingTot.length}`);
-  console.log(`solved avg steps\t = ${round2(savg)}`);
+  console.log(`solved avg steps\t = ${round3(savg)}`);
   console.log(`errors \t\t\t = ${errored.length}`);
-  console.log(`solved %\t\t = ${round2(100 * solved.length / stepsForSolvingTot.length)}%`);
-  console.log(`unsolved %\t\t = ${round2(100 * unsolved.length / stepsForSolvingTot.length)}%`);
+  console.log(`solved %\t\t = ${round3(100 * solved.length / stepsForSolvingTot.length)}%`);
+  console.log(`unsolved %\t\t = ${round3(100 * unsolved.length / stepsForSolvingTot.length)}%`);
 }
 
-function round2(num) {
-  return Math.round(num * 100) / 100;
+function round3(num) {
+  return Math.round(num * 1000) / 1000;
 }

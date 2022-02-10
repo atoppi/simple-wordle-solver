@@ -37,7 +37,7 @@ async function _getMostPopularLength(size, len) {
 
 const getRank = word => {
   if (cache.has(word)) return cache.get(word);
-  const rank = words5.indexOf(word);
+  let rank = words5.indexOf(word);
   if (rank < 0) console.log(`WARNING: word "${word}" not ranked`);
   cache.set(word, rank);
   return rank;
