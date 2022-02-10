@@ -3,7 +3,7 @@ const WORD_SIZE = 5;
 /* Maximum number of attempts */
 const MAX_STEPS = 6;
 /* Default strategy to use */
-const DEFAULT_STRATEGY = 6;
+const DEFAULT_STRATEGY = 7;
 
 import { program } from 'commander';
 program
@@ -216,6 +216,7 @@ function checkMask(mask) {
   return true;
 }
 
+let blacklist = [];
 function guess(solutions, strategy, stepsDone, lastMask) {
   let pick;
 
@@ -281,7 +282,7 @@ function guess(solutions, strategy, stepsDone, lastMask) {
   }
 
   /* Strategy 3 : slow, words with highest frequency _distinct_ chars metric */
-  /* ~93% of success rate */
+  /* ~92% of success rate */
   if (strategy === 3) {
     const weights = calculateCharFreqs(solutions);
     let max = 0;
@@ -337,7 +338,7 @@ function guess(solutions, strategy, stepsDone, lastMask) {
   }
 
   /* Strategy 5 : slow, refine strategy 4 by picking the most common word among the candidates with highest positioning frequency distinct chars metric */
-  /* ~97% of success rate */
+  /* ~98% of success rate */
   if (strategy === 5) {
     const weightsByPos = calculateCharFreqsByPosition(solutions);
     let max = 0;
@@ -362,7 +363,7 @@ function guess(solutions, strategy, stepsDone, lastMask) {
       }
     }
 
-    const rankedCandidates = orderByRank(candidates);
+    const rankedCandidates = orderByRank(candidates, blacklist);
     pick = rankedCandidates[0];
   }
 
@@ -370,12 +371,45 @@ function guess(solutions, strategy, stepsDone, lastMask) {
   /* ~98% of success rate */
   if (strategy === 6) {
     if ((MAX_STEPS - stepsDone <= 2) && solutions.length > MAX_STEPS - stepsDone) {
-      const rankedCandidates = orderByRank(solutions);
+      const rankedCandidates = orderByRank(solutions, blacklist);
       pick = rankedCandidates[0];
     }
     else {
       pick = guess(solutions, 5, stepsDone, lastMask);
     }
+  }
+
+  /* Strategy 7 : slow, refine strategy 6 using a blacklist for bad suggestions */
+  /* ~99% of success rate */
+  if (strategy === 7) {
+    blacklist = [
+      'bally',
+      'bitch',
+      'brill',
+      'bumpy',
+      'derry',
+      'doner',
+      'fifer',
+      'fitch',
+      'hinny',
+      'humpy',
+      'jagir',
+      'kerry',
+      'linny',
+      'mater',
+      'molly',
+      'moner',
+      'moola',
+      'pater',
+      'pussy',
+      'saker',
+      'sammy',
+      'saver',
+      'shill',
+      'stade',
+      'terry',
+    ];
+    pick = guess(solutions, 6, stepsDone, lastMask);
   }
 
   return pick;
@@ -452,10 +486,10 @@ function update(word, mask, solutions) {
   return solutions.filter(word => filters.every(f => f(word)));
 }
 
-function orderByRank(candidates) {
+function orderByRank(candidates, blacklist) {
   const compareFn = (first, second) => {
-    const rankFirst = getRank(first) >= 0 ? getRank(first) : Number.MAX_SAFE_INTEGER;
-    const rankSecond = getRank(second) >= 0 ? getRank(second) : Number.MAX_SAFE_INTEGER;
+    const rankFirst = getRank(first, blacklist) >= 0 ? getRank(first, blacklist) : Number.MAX_SAFE_INTEGER;
+    const rankSecond = getRank(second, blacklist) >= 0 ? getRank(second, blacklist) : Number.MAX_SAFE_INTEGER;
     if (rankFirst === rankSecond) return 0;
     if (rankFirst > rankSecond) return 1;
     if (rankFirst < rankSecond) return -1;
@@ -465,7 +499,7 @@ function orderByRank(candidates) {
   rankedCandidates.sort(compareFn);
 
   for (const c of rankedCandidates)
-    console.log(`${c}${dictionary.solutions.includes(c) ? '*' : ''}`, getRank(c));
+    console.log(`${c}${dictionary.solutions.includes(c) ? '*' : ''}`, getRank(c, blacklist));
 
   return rankedCandidates;
 }

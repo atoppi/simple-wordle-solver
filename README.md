@@ -99,7 +99,7 @@ node index.js --answer=paper --unattended
 
 - `0` : random guess among the remaining words
 
-This works surprsingly well, with a success rate of 88.6% in 4.6 average steps. Of course it is the quickest strategy.
+This works surprsingly well, with a success rate of ~89%% in 4.6 average steps. Of course it is the quickest strategy.
 
 - `1` : pick words with the higest number of distinct chars
 
@@ -107,22 +107,26 @@ It has a success rate of 92.5% in 4.4 average steps. It executes in reasonable t
 
 - `2`: pick words with the most frequent chars among the remaining words
 
-This strategy proved to be very poor. It has a success rate of 79.3% in 5.0 average steps. It also is very slow, since it needs to re-calculate chars frequency at each step.
+This strategy proved to be very poor. It has a success rate of 79.4% in 5.0 average steps. It also is very slow, since it needs to re-calculate chars frequency at each step.
 
 - `3`: mix 1 and 2, picking words with the most frequent *distinct* chars
 
-It has a success rate of 93% with 4.3 average steps needed. However it is as slow as `2`.
+It has a success rate of 92.4% with 4.3 average steps needed. However it is as slow as `2`.
 
 - `4`: similar to `3`, but pick words with the most frequent distinct chars in a *specific position*
 
-It has a success rate of 94.6% with 4.2 average steps needed.
+It has a success rate of 94.7% with 4.2 average steps needed.
 
 - `5`: refine `4`, by picking the most common english word among the candidates selected by strategy `4`
 
-It has a success rate of 97.1% in 4.1 average steps.
+It has a success rate of 98.3% in 4.0 average steps.
 
 - `6`: refine `5`, when remaining solutions set is very small does not evaluate the strategy `4` metric and just picks the most common english word
 
-It has a success rate of 98.3% in 4.1 average steps.
+It has a success rate of 98.5% in 4.0 average steps.
+
+- `7`: refine `6`, by using a blacklist for bad guesses
+
+It has a success rate of 99.3% in 4.0 average steps.
 
 This is the default strategy.

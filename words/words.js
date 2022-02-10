@@ -35,10 +35,15 @@ async function _getMostPopularLength(size, len) {
   return output;
 }
 
-const getRank = word => {
+const getRank = (word, blacklist = []) => {
   if (cache.has(word)) return cache.get(word);
   let rank = words5.indexOf(word);
   if (rank < 0) console.log(`WARNING: word "${word}" not ranked`);
+
+  if (blacklist.includes(word)) {
+    rank = Number.MAX_SAFE_INTEGER;
+  }
+
   cache.set(word, rank);
   return rank;
 };
