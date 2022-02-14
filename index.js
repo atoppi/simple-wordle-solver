@@ -29,7 +29,6 @@ import { getPrompt, closePrompt } from './prompt.js';
 
 /* Get wordle dictionary */
 import { dictionary, getRank } from './words/words.js';
-dictionary.values.sort();
 
 const cache = new Map();
 
