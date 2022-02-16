@@ -31,6 +31,7 @@ import { getPrompt, closePrompt } from './prompt.js';
 import { dictionary, getRank } from './words/words.js';
 
 const cache = new Map();
+const wdCache = new Map();
 
 function calculateCharFreqs(solutions) {
   let hits = {};
@@ -369,7 +370,8 @@ function guess(solutions, strategy, stepsDone, lastMask) {
   /* Strategy 6 : slow, refine strategy 5 by choosing only by most common english word at the last steps */
   /* ~98% of success rate */
   if (strategy === 6) {
-    if ((MAX_STEPS - stepsDone <= 2) && solutions.length > MAX_STEPS - stepsDone) {
+    const stepsLeft = MAX_STEPS - stepsDone;
+    if ((stepsLeft <= 2) && solutions.length > stepsLeft) {
       const rankedCandidates = orderByRank(solutions, blacklist);
       pick = rankedCandidates[0];
     }
@@ -564,4 +566,34 @@ if (!options.unattended) {
 
 function round3(num) {
   return Math.round(num * 1000) / 1000;
+}
+
+function wordDistance(w1, w2) {
+  if (wdCache.has(`${w1}_${w2}`)) return wdCache.get(`${w1}_${w2}`);
+  if (wdCache.has(`${w2}_${w1}`)) return wdCache.get(`${w2}_${w1}`);
+
+  let count = 0;
+  for (let i = 0; i < w1.length; i++) {
+    if (w1.charAt(i) !== w2.charAt(i)) count++;
+  }
+  wdCache.set(`${w1}_${w2}`, count);
+  wdCache.set(`${w2}_${w1}`, count);
+
+  return count;
+}
+
+function getDistanceVectors(words) {
+  const distancesByWord = {};
+  for (let i = 0; i < words.length; i++) {
+    const w1 = words[i];
+    distancesByWord[w1] = {};
+    for (let j = 0; j < words.length; j++) {
+      if (i === j) continue;
+      const w2 = words[j];
+      const dist = wordDistance(w1, w2);
+      distancesByWord[w1][dist] = distancesByWord[w1][dist] || [];
+      distancesByWord[w1][dist].push(w2);
+    }
+  }
+  return distancesByWord;
 }
